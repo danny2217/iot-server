@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: iot-server  # 이건 그냥 두세요! (서버 이름)
+
+  # 여기서부터 DB 설정 (같은 줄 라인에 맞추세요)
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    # 도커(Mac)니까 3307번!
+    url: jdbc:mariadb://localhost:3307/iot_db
+    username: root
+    password: root
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true

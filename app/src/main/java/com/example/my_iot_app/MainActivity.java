@@ -1,12 +1,22 @@
 package com.example.my_iot_app;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -17,103 +27,156 @@ import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
 
-    // 화면에 있는 녀석들을 담을 변수
-    private TextView tvTemp;
-    private TextView tvHumid;
-    private Button btnRefresh;
-    private Button btnLedOn, btnLedOff;
+    private TextView tvTemp, tvHumid;
+    private Button btnRefresh, btnLedOn, btnLedOff;
+
+    // [새로 추가된 변수]
+    private TextView tvSensorStatus, tvLastCheck;
+    Handler handler = new Handler();
+    boolean isAlertShown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main); // XML 화면이랑 연결
+        setContentView(R.layout.activity_main);
 
-        // 1. XML에 있는 애들을 찾아와서 변수에 넣기 (ID로 찾음)
+        // 1. 뷰 연결
         tvTemp = findViewById(R.id.tvTemp);
         tvHumid = findViewById(R.id.tvHumid);
         btnRefresh = findViewById(R.id.btnRefresh);
         btnLedOn = findViewById(R.id.btnLedOn);
         btnLedOff = findViewById(R.id.btnLedOff);
+        tvSensorStatus = findViewById(R.id.tvSensorStatus);
+        tvLastCheck = findViewById(R.id.tvLastCheck);
 
-        // 2. 버튼이 눌리면 할 일 정하기 (리스너)
-        btnRefresh.setOnClickListener(v -> {
-            getSensorDataFromServer(); // 서버에 요청 보내는 함수 실행!
-        });
-        // [LED 켜기 버튼 클릭]
+        // 2. 버튼 리스너
+        btnRefresh.setOnClickListener(v -> getSensorDataFromServer());
         btnLedOn.setOnClickListener(v -> sendCommand("ON"));
-
-        // [LED 끄기 버튼 클릭]
         btnLedOff.setOnClickListener(v -> sendCommand("OFF"));
+
+        // 3. 알림 설정
+        createNotificationChannel();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
+
+        // 4. 감시 시작
+        startMonitoring();
     }
 
-    // 서버로 명령 보내는 함수
-    private void sendCommand(String cmd) {
-        // 1. 보낼 데이터 포장 (CommandReq)
-        CommandReq req = new CommandReq(cmd);
+    void startMonitoring() {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                getSensorDataFromServer();
+                handler.postDelayed(this, 3000);
+            }
+        };
+        handler.post(runnable);
+    }
 
-        // 2. Retrofit 준비 (아까 만든 거 재활용하거나 새로 생성)
+    private void getSensorDataFromServer() {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://3.34.188.230:8080/")
-                .addConverterFactory(ScalarsConverterFactory.create()) // 문자열 받으려면 필요
-                .addConverterFactory(GsonConverterFactory.create()) //json 처리
+                .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         ApiService apiService = retrofit.create(ApiService.class);
 
-        // 3. 전송!
-        apiService.controlLed(req).enqueue(new Callback<String>() {
-            @Override
-            public void onResponse(Call<String> call, Response<String> response) {
-                if (response.isSuccessful()) {
-                    Toast.makeText(MainActivity.this, "명령 전송: " + cmd, Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(MainActivity.this, "실패: " + response.code(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<String> call, Throwable t) {
-                Toast.makeText(MainActivity.this, "에러: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    // 서버랑 통신하는 함수
-    private void getSensorDataFromServer() {
-        // (1) Retrofit 설정 (무전기 조립)
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://3.34.188.230:8080/") // 중요! 에뮬레이터에서 내 컴퓨터(Localhost)를 부르는 주소
-                .addConverterFactory(GsonConverterFactory.create()) // JSON -> 자바 변환기 장착
-                .build();
-
-        // (2) 메뉴판 가져오기
-        ApiService apiService = retrofit.create(ApiService.class);
-
-        // (3) 요청 보내기 (비동기: 앱 멈추지 말고 백그라운드에서 갔다 와!)
         apiService.getLastSensorData().enqueue(new Callback<SensorData>() {
             @Override
             public void onResponse(Call<SensorData> call, Response<SensorData> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    // 성공! 데이터 꺼내기
                     SensorData data = response.body();
 
-                    // 화면 갱신
+                    // 1. 온도/습도/시간 갱신
                     tvTemp.setText("온도: " + data.getTemperature() + " °C");
                     tvHumid.setText("습도: " + data.getHumidity() + " %");
 
-                    Toast.makeText(MainActivity.this, "갱신 완료!", Toast.LENGTH_SHORT).show();
-                } else {
-                    // 서버에는 갔는데 데이터가 없음
-                    Toast.makeText(MainActivity.this, "데이터가 없어요 ㅠㅠ", Toast.LENGTH_SHORT).show();
+                    if (data.getCreatedAt() != null) {
+                        tvLastCheck.setText("마지막 확인: " + data.getCreatedAt());
+                    } else {
+                        tvLastCheck.setText("데이터 수신중...");
+                    }
+
+                    // 2. [수정됨] 인체 감지 로직 (getMotion 사용!)
+                    int motionValue = data.getMotion(); // 0 또는 1
+
+                    if (motionValue == 1) {
+                        // 사람 있음!
+                        tvSensorStatus.setText("🚨 침입자 감지됨! 🚨");
+                        tvSensorStatus.setTextColor(Color.RED);
+
+                        if (!isAlertShown) {
+                            showNotification("경고!", "집에 누군가 침입했습니다!");
+                            isAlertShown = true;
+                        }
+                    } else {
+                        // 사람 없음
+                        tvSensorStatus.setText("안전함 (사람 없음)");
+                        tvSensorStatus.setTextColor(Color.GREEN);
+                        isAlertShown = false;
+                    }
                 }
             }
 
             @Override
             public void onFailure(Call<SensorData> call, Throwable t) {
-                // 아예 연결 실패 (서버가 꺼졌거나 인터넷 문제)
-                Log.e("MyIoTApp", "에러 발생: " + t.getMessage());
-                Toast.makeText(MainActivity.this, "서버 연결 실패.. 서버 켰나요?", Toast.LENGTH_SHORT).show();
+                Log.e("MyIoTApp", "에러: " + t.getMessage());
+                if (tvSensorStatus != null) {
+                    tvSensorStatus.setText("서버 연결 끊김");
+                    tvSensorStatus.setTextColor(Color.GRAY);
+                }
             }
         });
+    }
+
+    private void sendCommand(String cmd) {
+        CommandReq req = new CommandReq(cmd);
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://3.34.188.230:8080/")
+                .addConverterFactory(ScalarsConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        ApiService apiService = retrofit.create(ApiService.class);
+        apiService.controlLed(req).enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+                if (response.isSuccessful())
+                    Toast.makeText(MainActivity.this, "전송: " + cmd, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+            }
+        });
+    }
+
+    void showNotification(String title, String message) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "sensor_channel")
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        notificationManager.notify(1, builder.build());
+    }
+
+    void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel("sensor_channel", "Sensor Alerts", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("인체 감지 알림");
+
+            // 👇 이 줄이 빠져서 에러가 난 겁니다! (시스템에서 매니저를 불러와야 함)
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
     }
 }

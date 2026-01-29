@@ -44,6 +44,7 @@ public class SensorController {
             SensorData dummy = new SensorData();
             dummy.setTemperature(0.0);
             dummy.setHumidity(0.0);
+            dummy.setMotion(0);
             return ResponseEntity.ok(dummy);
         }
 

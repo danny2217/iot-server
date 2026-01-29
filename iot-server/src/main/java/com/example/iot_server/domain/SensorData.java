@@ -18,6 +18,7 @@ public class SensorData {
 
     private Double temperature; // 속성 1: 온도
     private Double humidity;    // 속성 2: 습도
+    private int motion;      // 속성 3: 모션
 
-    private LocalDateTime createdAt; // 속성 3: 측정 시간
+    private LocalDateTime createdAt; // 속성 4: 측정 시간
 }

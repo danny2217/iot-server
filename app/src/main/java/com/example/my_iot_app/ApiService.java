@@ -15,4 +15,7 @@ public interface ApiService {
     //[추가] LED 제어 요청 (POST)
     @POST("/api/sensor/control")
     Call<String> controlLed(@Body CommandReq req);
+
+    @POST("/api/login")
+    Call<String> login(@Body LoginRequest request);
 }

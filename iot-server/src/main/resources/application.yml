@@ -1,3 +1,7 @@
+server:
+  address: 0.0.0.0  # 👈 외부(폰)에서 접속 허용 (여기에 적는 겁니다!)
+  port: 8080
+
 spring:
   application:
     name: iot-server  # 이건 그냥 두세요! (서버 이름)
@@ -6,7 +10,7 @@ spring:
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     # 도커(Mac)니까 3307번!
-    url: jdbc:mariadb://localhost:3307/iot_db
+    url: jdbc:mariadb://192.168.0.48:3306/iot_db
     username: root
     password: root
 

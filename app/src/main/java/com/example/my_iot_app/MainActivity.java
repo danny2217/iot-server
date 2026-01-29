@@ -53,9 +53,9 @@ public class MainActivity extends AppCompatActivity {
 
         // 2. Retrofit 준비 (아까 만든 거 재활용하거나 새로 생성)
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8080/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .addConverterFactory(ScalarsConverterFactory.create()) // 문자열 받으려면 필요 (없으면 에러날 수 있음, 일단 해보고 에러나면 추가)
+                .baseUrl("http://3.34.188.230:8080/")
+                .addConverterFactory(ScalarsConverterFactory.create()) // 문자열 받으려면 필요
+                .addConverterFactory(GsonConverterFactory.create()) //json 처리
                 .build();
 
         ApiService apiService = retrofit.create(ApiService.class);
@@ -82,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
     private void getSensorDataFromServer() {
         // (1) Retrofit 설정 (무전기 조립)
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8080/") // 중요! 에뮬레이터에서 내 컴퓨터(Localhost)를 부르는 주소
+                .baseUrl("http://3.34.188.230:8080/") // 중요! 에뮬레이터에서 내 컴퓨터(Localhost)를 부르는 주소
                 .addConverterFactory(GsonConverterFactory.create()) // JSON -> 자바 변환기 장착
                 .build();
 

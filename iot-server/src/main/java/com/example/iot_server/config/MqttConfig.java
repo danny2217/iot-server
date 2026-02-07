@@ -25,7 +25,8 @@ public class MqttConfig {
     // 1. MQTT 설정 변수 (내 환경에 맞게 수정)
     // ========================================================
     // 라즈베리파이 IP가 맞는지 꼭 확인하세요!
-    private static final String BROKER_URL = "tcp://192.168.0.48:1883";
+    // 이렇게 바꾸세요!
+    private static final String BROKER_URL = "tcp://localhost:1883";;
 
     private static final String CLIENT_ID_IN = "spring-boot-server";     // 서버 수신용 ID
     private static final String CLIENT_ID_OUT = "spring-boot-publisher"; // 서버 송신용 ID
